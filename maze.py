@@ -49,14 +49,18 @@ class Maze:
             for row in range(self.num_rows):
                 self._draw_cell(col, row)
 
+    def solve(self) -> bool:
+        """Return True if the maze was solved, False otherwise."""
+        return self._solve_r(0, 0)
+
     def _draw_cell(self, i, j, sleep=0.01):
         self._cells[i][j].draw()
-        self._animate()
-        time.sleep(sleep)
+        self._animate(sleep)
 
-    def _animate(self):
+    def _animate(self, sleep=0.01):
         if self.win is not None:
             self.win.redraw()
+        time.sleep(sleep)
 
     def _break_entrance_and_exit(self):
         self._cells[0][0].has_top_wall = False
@@ -74,6 +78,17 @@ class Maze:
             yield (i, j-1, "bottom", "top")
         if j < self.num_cols - 1:
             yield (i, j+1, "top", "bottom")
+
+    def _get_visitable_neighbors(self, i, j) -> Iterable[tuple[int, int]]:
+        """Yield neighbors of cell where there's no wall between the two."""
+        if i > 0 and not self._cells[i-1][j].has_right_wall:
+            yield (i-1, j)
+        if i < self.num_rows - 1 and not self._cells[i+1][j].has_left_wall:
+            yield (i+1, j)
+        if j > 0 and not self._cells[i][j-1].has_bottom_wall:
+            yield (i, j-1)
+        if j < self.num_cols - 1 and not self._cells[i][j+1].has_top_wall:
+            yield (i, j+1)
 
     def _break_walls_r(self, i, j):
         self._cells[i][j].visited = True
@@ -97,14 +112,20 @@ class Maze:
             for cell in column:
                 cell.visited = False
 
-
-
-
-def main():
-    win = Window(800, 600)
-    Maze(100, 100, 10, 10, 50, 50, win)
-    win.wait_for_close()
-
-
-if __name__ == "__main__":
-    main()
+    def _solve_r(self, i: int, j: int):
+        """Return True if the cell leads to solving the maze."""
+        self._animate()
+        self._cells[i][j].visited = True
+        if i == self.num_cols - 1 and j == self.num_rows - 1:
+            return True
+        while True:
+            for neighbor_coordinates in self._get_visitable_neighbors(i, j):
+                neighbor = self._cells[neighbor_coordinates[0]][neighbor_coordinates[1]]
+                if not neighbor.visited:
+                    self._cells[i][j].draw_move(neighbor)
+                    solves_maze = self._solve_r(*neighbor_coordinates)
+                    if solves_maze:
+                        return True
+                    self._cells[i][j].draw_move(neighbor, undo=True)
+            self._animate()
+            return False
